@@ -20,5 +20,6 @@ This documentation will guide you through the features and usage of finecore.
    wallet
    transactions
    banktransfer
+   webhook
 
 .. index:: main index
