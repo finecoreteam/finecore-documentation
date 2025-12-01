@@ -1,0 +1,195 @@
+# Web Hook Events
+
+This document outlines the webhook event types and their associated data structures.
+
+### Webhook Event Types
+
+- `customer_bank_transfer`: Represents a customer bank transfer event.
+- `bank_transfer`: Represents a merchant bank transfer event.
+- `customer_wallet_debited`: Represents an event where a customer's wallet is debited.
+- `customer_wallet_credited`: Represents an event where a customer's wallet is credited.
+- `wallet_to_wallet_transfer`: Represents a wallet-to-wallet transfer event.
+- `batch_bank_transfer`: Represents a batch bank transfer event.
+- `account_funded`: Represents an event where an account is funded.
+
+### Webhook Response
+
+When an event occurs, a webhook will be sent with the following JSON structure:
+
+```json copy
+{
+  "event": "customer_bank_transfer",
+  "data": {
+    "id": "5a8d6c3e-bbf4-4f4b-80b9-8f2877363eae",
+    "user_id": "2c8e91cd-7ae4-4b34-bc9f-39e72b2dd9c4",
+    "merchant_id": "77b2d420-531c-44e7-a0fd-3d7e87b264dc",
+    "reference": "TXN-239487293847",
+    "amount": 1500.75,
+    "currency": "NGN",
+    "status": "COMPLETED",
+    "balance_before": 3500.0,
+    "balance_after": 2000.25,
+    "environment": "SANDBOX",
+    "type": "DEBIT",
+    "category": "BANK_TRANSFER",
+    "source": "wallet",
+    "destination": "merchant_account",
+    "description": "Payment for Order #12345",
+    "metadata": {
+      "order_id": "12345",
+      "channel": "web"
+    },
+    "created_at": "2025-05-01T13:25:43Z"
+  }
+}
+```
+
+---
+
+### Field Descriptions
+
+| Field          | Type      | Description                                                                |
+| -------------- | --------- | -------------------------------------------------------------------------- |
+| id             | UUID      | Unique identifier for the webhook event                                    |
+| user_id        | UUID      | The user associated with the transaction                                   |
+| merchant_id    | UUID      | The merchant involved in the transaction                                   |
+| reference      | String    | Unique transaction reference                                               |
+| amount         | Float     | Transaction amount                                                         |
+| currency       | String    | ISO currency code (e.g., NGN, USD)                                         |
+| status         | String    | Status of the transaction (COMPLETED, FAILED, etc.)                        |
+| balance_before | Float     | Balance before the transaction                                             |
+| balance_after  | Float     | Balance after the transaction                                              |
+| environment    | String    | Environment (LIVE, SANDBOX)                                                |
+| type           | String    | Type of transaction (CREDIT, DEBIT)                                        |
+| category       | String    | Category of transaction (e.g., BANK_TRANSFER, CREDIT_CUSTOMER_WALLET, etc) |
+| source         | String    | Origin of funds (e.g., WALLET, CARD)                                       |
+| destination    | String    | Destination of funds                                                       |
+| description    | String    | Description of the transaction                                             |
+| metadata       | Object    | Custom metadata (key-value pairs)                                          |
+| created_at     | Timestamp | ISO 8601 timestamp when the webhook event was triggered                    |
+
+---
+
+### Webhook Documentation
+
+This webhook system allows Finecore to send event notifications to your server in real-time. The webhook delivers a JSON payload via an HTTP POST request to your specified webhook URL.
+
+#### How It Works:
+
+- The server sends a POST request to your webhookUrl with a JSON payload.
+- The payload is signed using an HMAC-SHA256 signature generated with your secretKey.
+- The request includes headers to help you verify authenticity and ensure security.
+
+---
+
+##### Headers:
+
+- Content-Type: application/json
+- X-Webhook-Signature: `HMAC_SHA256_SIGNATURE`
+- X-Webhook-Timestamp: `ISO_8601_UTC_TIMESTAMP`
+
+##### Example:
+
+X-Webhook-Signature: b1946ac92492d2347c6235b4d2611184 <br/>
+X-Webhook-Timestamp: 2025-05-08T12:34:56.789Z
+
+---
+
+##### Payload:
+
+The payload is a JSON object that contains the data relevant to the event. The structure will vary based on the event type.
+
+<small>Example payload:</small>
+```json copy
+{
+  "event": "customer_bank_transfer",
+  "data":{
+    "id": "5a8d6c3e-bbf4-4f4b-80b9-8f2877363eae",
+    "user_id": "2c8e91cd-7ae4-4b34-bc9f-39e72b2dd9c4",
+    "merchant_id": "77b2d420-531c-44e7-a0fd-3d7e87b264dc",
+    "reference": "TXN-239487293847",
+    "amount": 1500.75,
+    "currency": "NGN",
+    "status": "COMPLETED",
+    "balance_before": 3500.00,
+    "balance_after": 2000.25,
+    "environment": "SANDBOX",
+    "type": "DEBIT",
+    "category": "BANK_TRANSFER",
+    "source": "wallet",
+    "destination": "merchant_account",
+    "description": "Payment for Order #12345",
+    "metadata": {
+      "order_id": "12345",
+      "channel": "web"
+    },
+    "created_at": "2025-05-01T13:25:43Z"
+  }
+}
+```
+---
+#### Verifying the Webhook:
+
+1. Compute an HMAC-SHA256 hash of the raw request body using your secretKey.
+2. Compare your computed hash with the value in the X-Webhook-Signature header.
+3. Check that the X-Webhook-Timestamp is recent (recommended within 5 minutes) to prevent replay attacks.
+
+Example verification steps:
+
+- Extract X-Webhook-Signature and X-Webhook-Timestamp from the headers.
+- Compute:
+  signature = HMAC_SHA256(secretKey, rawBody)
+- Compare:
+  If signature === X-Webhook-Signature → ✅ valid.
+
+---
+
+### Webhook Retry Policy
+
+To ensure reliable delivery, Finecore’s webhook system implements an automatic retry mechanism when delivering webhook events to your endpoint.
+
+##### Behavior:
+
+- **Number of retries**: 3 attempts in total (1 initial + 2 retries).
+- **Retry interval**: Exponential backoff starting at 100 milliseconds:
+
+  - **1st attempt**: immediately.
+  - **2nd attempt**: after 5 seconds.
+  - **3rd attempt**: after 10 seconds.
+
+- **Timeout**: Each webhook request will timeout after 30 seconds if your server does not respond.
+
+- **Retry triggers**: Retries occur if:
+  - Your server is unreachable (network error).
+  - Your server responds with a non-2xx HTTP status code.
+  - Your server takes too long to respond (exceeds 30 seconds).
+
+###### Stopping Condition:
+
+- If your server responds with a 2xx HTTP status code, the webhook is considered delivered and no further retries are attempted.
+
+---
+
+#### Best Practices for Your Endpoint:
+
+- Always respond with a 2xx HTTP status code to acknowledge successful receipt.
+- Validate the X-Webhook-Signature header to ensure the request’s authenticity.
+- Process webhook payloads idempotently to avoid duplicate side effects in case of retries.
+
+<small>Example Retry Flow:</small>
+
+| Attempt | Wait before retry | Notes                    |
+| ------- | ----------------- | ------------------------ |
+| 1st     | Immediate         | Initial delivery attempt |
+| 2nd     | 5s                | First retry if needed    |
+| 3rd     | 10s               | Second retry if needed   |
+
+---
+
+##### Important Notes:
+
+- Always acknowledge receipt with a 200 OK HTTP status code.
+- Make sure your endpoint is secure and can handle requests at scale.
+- Your server should verify the signature and timestamp before processing the webhook payload.
+
+For technical support or questions, contact tech@finecore.co.

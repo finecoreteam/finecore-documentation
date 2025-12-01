@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { generateStaticParamsFor, importPage } from "nextra/pages";
-import { useMDXComponents as getMDXComponents } from "../../../components/mdx-components";
+import { useMDXComponents as getMDXComponents } from "../../components/mdx-components";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
 

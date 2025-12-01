@@ -48,6 +48,7 @@ export default async function RootLayout({ children }) {
           pageMap={await getPageMap()}
           docsRepositoryBase="https://github.com/shuding/nextra/tree/main/docs"
           footer={footer}
+          copyPageButton={false}
           // ... Your additional layout options
         >
           {children}
